@@ -12,6 +12,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SubscriptionInfo;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -33,14 +34,16 @@ import de.fraunhofer.fokus.OpenMobileNetworkToolkit.R;
 
 public class SettingsFragment extends PreferenceFragmentCompat {
 
+    private static final String TAG = "SettingsFragment";
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         SharedPreferencesGrouper spg = SharedPreferencesGrouper.getInstance(requireContext());
         PreferenceManager pfm = getPreferenceManager();
-        getPreferenceManager().setSharedPreferencesName(spg.getSharedPreferenceIdentifier(SPType.default_sp));
-        pfm.setSharedPreferencesName(spg.getSharedPreferenceIdentifier(SPType.default_sp));
+        getPreferenceManager().setSharedPreferencesName(spg.getSharedPreferenceIdentifier(SPType.MAIN));
+        pfm.setSharedPreferencesName(spg.getSharedPreferenceIdentifier(SPType.MAIN));
         pfm.setSharedPreferencesMode(Context.MODE_PRIVATE);
-        setPreferencesFromResource(R.xml.preference, rootKey);
+        setPreferencesFromResource(R.xml.preference_main, rootKey);
 
         ListPreference sub_select = pfm.findPreference("select_subscription");
         if (sub_select != null) {
@@ -64,6 +67,15 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             }
         }
 
+        for (String key : pfm.getSharedPreferences().getAll().keySet()) {
+            Preference pref = pfm.findPreference(key);
+            if (pref != null) {
+                pref.setOnPreferenceChangeListener((preference, newValue) -> {
+                    Log.d(TAG, "Preference changed: " + preference.getKey() + " -> " + newValue);
+                    return true;
+                });
+            }
+        }
         Preference button = pfm.findPreference("reset_modem");
         if (button != null) {
             if (GlobalVars.getInstance().isCarrier_permissions()) {

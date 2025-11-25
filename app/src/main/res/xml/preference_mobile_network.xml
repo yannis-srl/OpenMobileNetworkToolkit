@@ -14,9 +14,23 @@
         <PreferenceCategory
             android:title="@string/radio_settings"
             app:iconSpaceReserved="false">
+                <Preference
+                    app:key="doc"
+                    android:summary="@string/radio_setting_documentation_summary"
+                    app:title="@string/open_for_link_to_documentation"
+                    app:iconSpaceReserved="false"
+                    >
+                  <intent
+                    android:action="android.intent.action.VIEW"
+                    android:data="https://developer.android.com/reference/android/telephony/TelephonyManager#setNetworkSelectionModeManual(java.lang.String,%20boolean,%20int)" />
+
+                </Preference>
+
+
                 <DropDownPreference
                     android:key="select_network_type"
                     android:title="@string/access_networktype"
+                    android:defaultValue=""
                     app:iconSpaceReserved="false" />
                 <EditTextPreference
                     android:key="add_plmn"

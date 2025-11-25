@@ -30,8 +30,8 @@ public class SharedPreferencesGrouper {
     private final SharedPreferences iperf3SP;
     private final SharedPreferences mobileNetworkSP;
     private final SharedPreferences mqttSP;
-    private final SharedPreferences defaultSP;
     private final SharedPreferences pingSP;
+    private final SharedPreferences mainSP;
     private final Context ct;
     private ConcurrentHashMap <SPType, Set<SharedPreferences.OnSharedPreferenceChangeListener>> spMap = new ConcurrentHashMap<>();
     public String getSharedPreferenceIdentifier(SPType key)  {
@@ -47,13 +47,13 @@ public class SharedPreferencesGrouper {
 
     private SharedPreferencesGrouper( Context ct) {
         this.ct = ct;
-        loggingSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.logging_sp), Context.MODE_PRIVATE);
-        carrierSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.carrier_sp), Context.MODE_PRIVATE);
-        iperf3SP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.iperf3_sp), Context.MODE_PRIVATE);
-        pingSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.ping_sp), Context.MODE_PRIVATE);
-        mqttSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.mqtt_sp), Context.MODE_PRIVATE);
-        mobileNetworkSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.mobile_network_sp), Context.MODE_PRIVATE);
-        defaultSP = PreferenceManager.getDefaultSharedPreferences(ct);
+        loggingSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.LOGGING), Context.MODE_PRIVATE);
+        carrierSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.CARRIER), Context.MODE_PRIVATE);
+        iperf3SP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.IPERF3), Context.MODE_PRIVATE);
+        pingSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.PING), Context.MODE_PRIVATE);
+        mqttSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.MQTT), Context.MODE_PRIVATE);
+        mobileNetworkSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.MOBILE_NETWORK), Context.MODE_PRIVATE);
+        mainSP = ct.getSharedPreferences(getSharedPreferenceIdentifier(SPType.MAIN), Context.MODE_PRIVATE);
     }
 
     public static SharedPreferencesGrouper getInstance(Context ct) {
@@ -66,26 +66,27 @@ public class SharedPreferencesGrouper {
     public SharedPreferences getSharedPreference(SPType key){
         SharedPreferences sp;
         switch (key) {
-            case logging_sp:
+            case LOGGING:
                 sp = loggingSP;
                 break;
-            case carrier_sp:
+            case CARRIER:
                 sp = carrierSP;
                 break;
-            case iperf3_sp:
+            case IPERF3:
                 sp = iperf3SP;
                 break;
-            case ping_sp:
+            case PING:
                 sp = pingSP;
                 break;
-            case mobile_network_sp:
+            case MOBILE_NETWORK:
                 sp = mobileNetworkSP;
                 break;
-            case mqtt_sp:
+            case MQTT:
                 sp = mqttSP;
                 break;
+            case MAIN:
             default:
-                sp = defaultSP;
+                sp = mainSP;
                 break;
         }
         return sp;

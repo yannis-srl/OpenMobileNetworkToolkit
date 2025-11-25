@@ -12,7 +12,9 @@ import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.util.Log;
 
@@ -32,13 +34,16 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import de.fraunhofer.fokus.OpenMobileNetworkToolkit.Inputs.PingInput;
+import de.fraunhofer.fokus.OpenMobileNetworkToolkit.MainActivity;
 import de.fraunhofer.fokus.OpenMobileNetworkToolkit.Parameter.PingParameter;
 import de.fraunhofer.fokus.OpenMobileNetworkToolkit.Ping.PingInformations.PacketLossLine;
 import de.fraunhofer.fokus.OpenMobileNetworkToolkit.Ping.PingInformations.PingInformation;
@@ -80,10 +85,10 @@ public class PingWorker extends Worker {
         notificationManager = (NotificationManager) ct.getSystemService(Context.NOTIFICATION_SERVICE);
         notificationBuilder = new NotificationCompat.Builder(ct, channelId);
 
-        File rawPath = new File(PingParameter.rawDirPath);
+        File rawPath = new File(pingInput.getParameter().getRawDirPath());
         if(!rawPath.exists()){
             if(!rawPath.mkdirs()){
-                Log.e(TAG, "Error creating rawDirPath directory: " + PingParameter.rawDirPath);
+                Log.e(TAG, "Error creating rawDirPath directory: " + pingInput.getParameter().getRawDirPath());
             }
         }
 
@@ -93,7 +98,18 @@ public class PingWorker extends Worker {
     }
 
     private ForegroundInfo createForegroundInfo(String progress) {
-        notification = notificationBuilder
+        Intent intent = new Intent(this.ct, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        intent.putExtra("navigateToFragment", "PingFragment"); // Identifier for your fragment
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this.ct,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification notification = notificationBuilder
                 .setContentTitle("Ping")
                 .setContentText(progress)
                 .setOngoing(true)
@@ -101,9 +117,12 @@ public class PingWorker extends Worker {
                 .setColor(Color.WHITE)
                 .setSmallIcon(R.mipmap.ic_launcher_foreground)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_DEFAULT)
+                .setContentIntent(pendingIntent) // 👈 attach pending intent here
                 .build();
+
         return new ForegroundInfo(notificationID, notification, FOREGROUND_SERVICE_TYPE);
     }
+
 
 
     @NonNull
@@ -128,15 +147,17 @@ public class PingWorker extends Worker {
 
         Log.d(TAG, "doWork: executing " + String.join(" ", command));
         int result = -1;
+        String error = "";
         try {
 
 
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             Process process = processBuilder.start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            FileOutputStream pingStream = new FileOutputStream(pingInput.getPingParameter().getLogfile(), true);
+            FileOutputStream pingStream = new FileOutputStream(pingInput.getPingParameter().getRawLogFilePath(), true);
             PingParser pingParser = new PingParser();
             String line;
+
             while ((line = reader.readLine()) != null) {
                 Log.d(TAG, "doWork: "+line);
                 pingStream.write((line + "\n").getBytes());
@@ -147,12 +168,12 @@ public class PingWorker extends Worker {
                     Log.w(TAG, "doWork: Line or PingInformation is null, skipping line");
                     continue;
                 }
+
                 switch (pingInformation.getLineType()){
                     case RTT:
                         rtt = ((RTTLine)pingInformation).getRtt();
-                        progressOutput.putDouble(RTT, rtt);
-
-                        setProgressAsync(progressOutput.build());
+                        progressOutput.putString(RTT, new Gson().toJson((RTTLine)pingInformation));
+//                        setProgressAsync(progressOutput.build());
                         setForegroundAsync(createForegroundInfo(((RTTLine) pingInformation).getHost()+": " + rtt + " ms"));
                         Log.d(TAG, "doWork: RTT: " + rtt);
                         break;
@@ -164,25 +185,36 @@ public class PingWorker extends Worker {
                         progressOutput.putString(REASON, "Request timeout");
                         break;
                     case PACKET_LOSS:
-                        double packetLoss = ((PacketLossLine)pingInformation).getPacketLoss();
-                        setProgressAsync(new Data.Builder().putDouble(PACKET_LOSS, packetLoss).build());
-                        Log.d(TAG, "doWork: Packet Loss: " + packetLoss);
+                        PacketLossLine packetLoss = ((PacketLossLine)pingInformation);
+                        progressOutput.putString(PACKET_LOSS, new Gson().toJson(packetLoss));
+//                        setProgressAsync(progressOutput.build());
+                        Log.d(TAG, "doWork: Packet Loss: " + packetLoss.toString());
                         break;
                     case UNKNOWN:
                         Log.w(TAG, "doWork: Unknown line type");
                         break;
                 }
+                setProgressAsync(progressOutput.build());
 
                 if(this.isStopped()){
                     break;
                 }
 
+
             }
+            error = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))
+                    .lines()
+                    .collect(Collectors.joining("\n"));
             process.destroy();
             pingStream.close();
             reader.close();
 
             result = process.waitFor();
+
+
+
+            Thread.sleep(200); // Sleep so that the Observer can process the last lines
         } catch (IOException e) {
             Log.e(TAG, "Error while executing ping command: " + e.toString());
             return Result.failure(output.putString(REASON, "Error while executing ping command.").build());
@@ -191,9 +223,10 @@ public class PingWorker extends Worker {
             return Result.failure(output.putString(REASON, "Error while waiting for ping command.").build());
         }
 
-        if (result != 0) {
+        if (result != 0) {;
             Log.e(TAG, "Ping command failed with result: " + result);
-            return Result.failure(output.putString(REASON, "Ping command failed with result: " + result).build());
+            Log.e(TAG, "Ping command failed because: "+error);
+            return Result.failure(output.putString(REASON, "Ping command failed: " + error).build());
         }
 
         return Result.success(output.putBoolean(PING, true).build());

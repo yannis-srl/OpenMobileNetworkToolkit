@@ -23,6 +23,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
@@ -144,6 +145,19 @@
             android:label="StartLoggingServiceAtBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="de.fraunhofer.fokus.OpenMobileNetworkToolkit.Receiver.JsonConfigReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="de.fraunhofer.fokus.OpenMobileNetworkToolkit.CONFIG_JSON" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="de.fraunhofer.fokus.OpenMobileNetworkToolkit.Receiver.FileConfigReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="de.fraunhofer.fokus.OpenMobileNetworkToolkit.CONFIG_FILE" />
             </intent-filter>
         </receiver>
 

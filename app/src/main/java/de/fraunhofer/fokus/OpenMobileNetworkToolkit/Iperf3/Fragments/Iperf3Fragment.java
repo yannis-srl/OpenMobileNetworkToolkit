@@ -74,7 +74,7 @@ public class Iperf3Fragment extends Fragment {
     private TextInputEditText duration;
     private TextInputEditText interval;
     private TextInputEditText bytes;
-    private TextInputEditText streams;
+    private TextInputEditText parallel;
     private TextInputEditText cport;
 
 
@@ -132,7 +132,7 @@ public class Iperf3Fragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 consumer.accept(charSequence.toString());
-                spg.getSharedPreference(SPType.iperf3_sp).edit().putString(name, charSequence.toString()).apply();
+                spg.getSharedPreference(SPType.IPERF3).edit().putString(name, charSequence.toString()).apply();
             }
 
             @Override
@@ -151,7 +151,7 @@ public class Iperf3Fragment extends Fragment {
         duration.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setTime(Integer.parseInt("0"+s)), Iperf3Parameter.TIME));
         interval.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setInterval(Double.parseDouble("0"+s)), Iperf3Parameter.INTERVAL));
         bytes.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setBytes(s), Iperf3Parameter.BYTES));
-        streams.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setParallel(Integer.parseInt("0"+s)), Iperf3Parameter.PARALLEL));
+        parallel.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setParallel(Integer.parseInt("0"+s)), Iperf3Parameter.PARALLEL));
         cport.addTextChangedListener(createTextWatcher(s -> iperf3Input.getParameter().setCport(Integer.parseInt("0"+s) ), Iperf3Parameter.CPORT));
     }
 
@@ -161,8 +161,8 @@ public class Iperf3Fragment extends Fragment {
      * @param key
      */
     private void setTextFromSharedPreferences(TextInputEditText editText, String key) {
-        if (spg.getSharedPreference(SPType.iperf3_sp).contains(key)) {
-            editText.setText(spg.getSharedPreference(SPType.iperf3_sp).getString(key, ""));
+        if (spg.getSharedPreference(SPType.IPERF3).contains(key)) {
+            editText.setText(spg.getSharedPreference(SPType.IPERF3).getString(key, ""));
         }
     }
 
@@ -256,7 +256,7 @@ public class Iperf3Fragment extends Fragment {
         setTextFromSharedPreferences(duration, Iperf3Parameter.TIME);
         setTextFromSharedPreferences(interval, Iperf3Parameter.INTERVAL);
         setTextFromSharedPreferences(bytes, Iperf3Parameter.BYTES);
-        setTextFromSharedPreferences(streams, Iperf3Parameter.STREAMS);
+        setTextFromSharedPreferences(parallel, Iperf3Parameter.PARALLEL);
         setTextFromSharedPreferences(cport, Iperf3Parameter.CPORT);
     }
 
@@ -311,8 +311,8 @@ public class Iperf3Fragment extends Fragment {
                 iperf3Input.getParameter().updatePaths();
                 iperf3Input.setTimestamp(new Timestamp(System.currentTimeMillis()));
 
-                File logFile = new File(iperf3Input.getParameter().getLogfile());
-                File rawPath = new File(Iperf3Parameter.rawDirPath);
+                File logFile = new File(iperf3Input.getParameter().getRawLogFilePath());
+                File rawPath = new File(iperf3Input.getParameter().getRawDirPath());
 
                 if(!rawPath.exists()) {
                     rawPath.mkdirs();
@@ -347,7 +347,7 @@ public class Iperf3Fragment extends Fragment {
         duration = view.findViewById(R.id.iperf3_duration);
         interval = view.findViewById(R.id.iperf3_interval);
         bytes = view.findViewById(R.id.iperf3_bytes);
-        streams = view.findViewById(R.id.iperf3_streams);
+        parallel = view.findViewById(R.id.iperf3_parallel);
         cport = view.findViewById(R.id.iperf3_cport);
 
 
@@ -368,7 +368,7 @@ public class Iperf3Fragment extends Fragment {
         setupTextWatchers();
         setTextsFromSharedPreferences();
         try {
-            switch (Iperf3Parameter.Iperf3Mode.valueOf(spg.getSharedPreference(SPType.iperf3_sp).getString(Iperf3Parameter.MODE, String.valueOf(Iperf3Parameter.Iperf3Mode.UNDEFINED)))){
+            switch (Iperf3Parameter.Iperf3Mode.valueOf(spg.getSharedPreference(SPType.IPERF3).getString(Iperf3Parameter.MODE, String.valueOf(Iperf3Parameter.Iperf3Mode.UNDEFINED)))){
                 case CLIENT:
                     updateModeState(modeClient, modeServer, Iperf3Parameter.Iperf3Mode.CLIENT);
                     break;
@@ -379,14 +379,14 @@ public class Iperf3Fragment extends Fragment {
                 default:
                     modeClient.setBackgroundColor(Color.TRANSPARENT);
                     modeServer.setBackgroundColor(Color.TRANSPARENT);
-                    spg.getSharedPreference(SPType.iperf3_sp).edit().putString(Iperf3Parameter.MODE, Iperf3Parameter.Iperf3Mode.UNDEFINED.toString()).apply();
+                    spg.getSharedPreference(SPType.IPERF3).edit().putString(Iperf3Parameter.MODE, Iperf3Parameter.Iperf3Mode.UNDEFINED.toString()).apply();
                     break;
             }
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "onCreateView: ", e);
         }
         try {
-            switch (Iperf3Parameter.Iperf3Protocol.valueOf(spg.getSharedPreference(SPType.iperf3_sp).getString(Iperf3Parameter.PROTOCOL, Iperf3Parameter.Iperf3Protocol.UNDEFINED.toString()))){
+            switch (Iperf3Parameter.Iperf3Protocol.valueOf(spg.getSharedPreference(SPType.IPERF3).getString(Iperf3Parameter.PROTOCOL, Iperf3Parameter.Iperf3Protocol.UNDEFINED.toString()))){
                 case TCP:
                     updateProtocolState(protocolTCP, protocolUDP, Iperf3Parameter.Iperf3Protocol.TCP);
                     break;
@@ -397,14 +397,14 @@ public class Iperf3Fragment extends Fragment {
                 default:
                     protocolTCP.setBackgroundColor(Color.TRANSPARENT);
                     protocolUDP.setBackgroundColor(Color.TRANSPARENT);
-                    spg.getSharedPreference(SPType.iperf3_sp).edit().putString(Iperf3Parameter.PROTOCOL, Iperf3Parameter.Iperf3Protocol.UNDEFINED.toString()).apply();
+                    spg.getSharedPreference(SPType.IPERF3).edit().putString(Iperf3Parameter.PROTOCOL, Iperf3Parameter.Iperf3Protocol.UNDEFINED.toString()).apply();
                     break;
             }
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "onCreateView: ", e);
         }
         try {
-            switch (Iperf3Parameter.Iperf3Direction.valueOf(spg.getSharedPreference(SPType.iperf3_sp).getString(Iperf3Parameter.DIRECTION, Iperf3Parameter.Iperf3Direction.UNDEFINED.toString()))) {
+            switch (Iperf3Parameter.Iperf3Direction.valueOf(spg.getSharedPreference(SPType.IPERF3).getString(Iperf3Parameter.DIRECTION, Iperf3Parameter.Iperf3Direction.UNDEFINED.toString()))) {
                 case UP:
                     updateDirectionState(directionUp, directionDown, directonBidir, Iperf3Parameter.Iperf3Direction.UP);
                     break;
@@ -495,14 +495,14 @@ public class Iperf3Fragment extends Fragment {
         activeButton.setBackgroundColor(getResources().getColor(R.color.purple_500, null));
         inactiveButton.setBackgroundColor(Color.TRANSPARENT);
         iperf3Input.getParameter().setMode(protocol);
-        spg.getSharedPreference(SPType.iperf3_sp).edit().putString(Iperf3Parameter.MODE, protocol.toString()).apply();
+        spg.getSharedPreference(SPType.IPERF3).edit().putString(Iperf3Parameter.MODE, protocol.toString()).apply();
     }
 
     private void updateProtocolState(MaterialButton activeButton, MaterialButton inactiveButton, Iperf3Parameter.Iperf3Protocol protocol) {
         activeButton.setBackgroundColor(getResources().getColor(R.color.purple_500, null));
         inactiveButton.setBackgroundColor(Color.TRANSPARENT);
         iperf3Input.getParameter().setProtocol(protocol);
-        spg.getSharedPreference(SPType.iperf3_sp).edit().putString(Iperf3Parameter.PROTOCOL, protocol.toString()).apply();
+        spg.getSharedPreference(SPType.IPERF3).edit().putString(Iperf3Parameter.PROTOCOL, protocol.toString()).apply();
     }
 
     private void updateDirectionState(MaterialButton activeButton, MaterialButton inactiveButton1, MaterialButton inactiveButton2, Iperf3Parameter.Iperf3Direction direction) {
@@ -510,6 +510,6 @@ public class Iperf3Fragment extends Fragment {
         inactiveButton1.setBackgroundColor(Color.TRANSPARENT);
         inactiveButton2.setBackgroundColor(Color.TRANSPARENT);
         iperf3Input.getParameter().setDirection(direction);
-        spg.getSharedPreference(SPType.iperf3_sp).edit().putString(Iperf3Parameter.DIRECTION, direction.toString()).apply();
+        spg.getSharedPreference(SPType.IPERF3).edit().putString(Iperf3Parameter.DIRECTION, direction.toString()).apply();
     }
 }

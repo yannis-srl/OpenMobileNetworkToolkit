@@ -4,11 +4,10 @@
  *
  * SPDX-License-Identifier: apache2
  */
-
 plugins {
     id 'com.android.application'
     id 'androidx.navigation.safeargs'
-    id("org.spdx.sbom") version "0.8.0"
+    id("org.spdx.sbom") version "0.9.0"
 }
 
 def keystoreProperties = new Properties()
@@ -60,8 +59,8 @@ android {
         applicationId "de.fraunhofer.fokus.OpenMobileNetworkToolkit"
         minSdk 31
         targetSdk 36
-        versionCode 6
-        versionName "0.6"
+        versionCode 7
+        versionName "0.7"
         resValue("string", "git_hash", getGitHash())
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -127,12 +126,12 @@ spdxSbom {
 }
 
 dependencies {
-    def work_version = "2.10.1"
+    def work_version = "2.11.0"
     def room_version = "2.7.1"
 
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
     annotationProcessor "androidx.room:room-compiler:$room_version"
     androidTestImplementation "androidx.work:work-testing:$work_version"
 
@@ -142,33 +141,236 @@ dependencies {
     implementation "androidx.work:work-gcm:$work_version"
     implementation "androidx.work:work-multiprocess:$work_version"
     implementation 'com.google.android.flexbox:flexbox:3.0.0'
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2"
     implementation 'androidx.preference:preference:1.2.1'
     implementation "androidx.room:room-runtime:$room_version"
     implementation 'androidx.appcompat:appcompat:1.7.1'
-    implementation 'com.google.guava:guava:33.4.0-jre'
-    implementation 'androidx.concurrent:concurrent-futures:1.2.0'
-    implementation 'androidx.activity:activity:1.10.1'
-    implementation 'androidx.fragment:fragment:1.8.8'
-    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'com.google.guava:guava:33.5.0-jre'
+    implementation 'androidx.concurrent:concurrent-futures:1.3.0'
+    implementation 'androidx.activity:activity:1.12.0'
+    implementation 'androidx.fragment:fragment:1.8.9'
+    implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
-    implementation 'androidx.navigation:navigation-fragment:2.9.0'
-    implementation 'androidx.navigation:navigation-ui:2.9.0'
+    implementation 'androidx.navigation:navigation-fragment:2.9.6'
+    implementation 'androidx.navigation:navigation-ui:2.9.6'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'androidx.recyclerview:recyclerview:1.4.0'
     implementation 'androidx.recyclerview:recyclerview-selection:1.2.0'
-    implementation 'com.influxdb:influxdb-client-java:7.3.0'
+    implementation 'com.influxdb:influxdb-client-java:7.4.0'
     implementation 'com.google.android.gms:play-services-location:21.3.0'
     implementation 'com.github.anastr:speedviewlib:1.6.1'
     implementation "androidx.viewpager2:viewpager2:1.1.0"
-    implementation "androidx.compose.material3:material3:1.3.2"
-    implementation "com.hivemq:hivemq-mqtt-client:1.3.4"
-    implementation "androidx.compose.material3:material3:1.3.2"
+    implementation "androidx.compose.material3:material3:1.4.0"
+    implementation "com.hivemq:hivemq-mqtt-client:1.3.10"
+    implementation "androidx.compose.material3:material3:1.4.0"
     implementation "com.squareup.moshi:moshi:1.15.2"
-    implementation "com.squareup.moshi:moshi-adapters:1.8.0"
+    implementation "com.squareup.moshi:moshi-adapters:1.15.2"
 }
 
-configurations.implementation {
-    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+
+tasks.register('generatePrefsDoc') {
+    def resXmlDir = file("$projectDir/src/main/res/xml")
+    def stringsFile = file("$projectDir/src/main/res/values/strings.xml")
+    def arraysFile = file("$projectDir/src/main/res/values/arrays.xml")
+    def outputFile = file("$projectDir/../docs/preferences.md")
+    def jsonOutputFileDoc = file("$projectDir/../docs/config.json")
+    def jsonOutputFileResources = file("$projectDir/src/main/res/raw/config.json")
+
+    doLast {
+        def parseStringsXml = { File xmlFile ->
+            def parser = new XmlSlurper()
+            def root = parser.parse(xmlFile)
+            def map = [:]
+            root.string.each { s ->
+                map[s.@name.toString()] = s.text().trim()
+            }
+            return map
+        }
+
+        def parseArraysXml = { File xmlFile ->
+            if (!xmlFile.exists()) return [:]
+            def parser = new XmlSlurper()
+            def root = parser.parse(xmlFile)
+            def map = [:]
+            root.array.each { arr ->
+                def name = arr.@name.toString()
+                map[name] = arr.item.collect { it.text().trim() }
+            }
+            return map
+        }
+
+        def stringsMap = stringsFile.exists() ? parseStringsXml(stringsFile) : [:]
+        def arraysMap = arraysFile.exists() ? parseArraysXml(arraysFile) : [:]
+
+        def resolveRef = { String ref ->
+            if (!ref) return ""
+            if (ref.startsWith("@string/")) {
+                def key = ref.substring(8)
+                return stringsMap.get(key, ref)
+            } else if (ref.startsWith("@array/")) {
+                def key = ref.substring(7)
+                def arr = arraysMap.get(key)
+                return arr ? arr.join(", ") : ref
+            }
+            return ref
+        }
+
+        def getAttrValue = { attrs, List<String> keys ->
+            for (k in keys) {
+                if (attrs.containsKey(k)) {
+                    return attrs[k]
+                }
+            }
+            return null
+        }
+
+        def md = new StringBuilder("# Preferences Documentation\n\n")
+        def jsonList = [] // full JSON list to serialize
+
+        resXmlDir.eachFile { xmlFile ->
+            if (xmlFile.name.toLowerCase().startsWith("preference") && xmlFile.name.endsWith(".xml")) {
+                def logicalName = xmlFile.name
+                        .replaceFirst(/^preference_/, '')
+                        .replaceFirst(/\.xml$/, '')
+                        .replaceAll(/_/, ' ')
+                        .capitalize()
+
+                md.append("## ${logicalName}\n\n")
+
+                def xml = new XmlSlurper(false, false).parse(xmlFile)
+                def categories = [:]
+
+
+                def processPrefs
+                processPrefs = { node, categoryName = null ->
+                    def attrs = node.attributes()
+                    def prefType
+                    switch (node.name()) {
+                        case "SwitchPreferenceCompat":
+                        case "SwitchPreference":
+                        case "CheckBoxPreference":
+                            prefType = "boolean"
+                            break
+                        case "EditTextPreference":
+                        case "ListPreference":
+                            prefType = "string"
+                            break
+                        case "SeekBarPreference":
+                            prefType = "int"
+                            break
+                        case "MultiSelectListPreference":
+                            prefType = "set"
+                            break
+                        default:
+                            prefType = "string"
+                    }
+                    if (node.name() == "PreferenceCategory") {
+                        def catTitleRaw = getAttrValue(attrs, ['android:title', 'app:title', 'title'])
+                        def catSummaryRaw = getAttrValue(attrs, ['android:summary', 'app:summary', 'summary'])
+                        def catTitle = resolveRef(catTitleRaw) ?: "Unnamed Category"
+                        def catSummary = resolveRef(catSummaryRaw) ?: ""
+
+                        if (!categories.containsKey(catTitle)) {
+                            categories[catTitle] = [summary: catSummary, prefs: []]
+                        }
+
+                        node.children().each { child ->
+                            processPrefs(child, catTitle)
+                        }
+                    } else if (node.name() == "PreferenceScreen") {
+                        node.children().each { child ->
+                            processPrefs(child, categoryName)
+                        }
+                    } else {
+                        def keyRaw = getAttrValue(attrs, ['android:key', 'app:key', 'key'])
+                        if (keyRaw) {
+                            def titleRaw = getAttrValue(attrs, ['android:title', 'app:title', 'title'])
+                            def summaryRaw = getAttrValue(attrs, ['android:summary', 'app:summary', 'summary'])
+                            def defaultValueRaw = getAttrValue(attrs, ['android:defaultValue', 'app:defaultValue', 'defaultValue'])
+
+                            def title = resolveRef(titleRaw)
+                            def summary = resolveRef(summaryRaw)
+                            def defaultValue = resolveRef(defaultValueRaw)
+
+                            if (categoryName == null) {
+                                categoryName = "General Preferences"
+                                if (!categories.containsKey(categoryName)) {
+                                    categories[categoryName] = [summary: "", prefs: []]
+                                }
+                            }
+
+                            categories[categoryName].prefs << [
+                                    key         : keyRaw,
+                                    title       : title,
+                                    nodeName   : node.name(),
+                                    summary     : summary,
+                                    defaultValue: defaultValue,
+                                    type        : prefType
+                            ]
+                        }
+                    }
+                }
+
+                processPrefs(xml)
+
+                def jsonEntry = [
+                        setting: logicalName.toLowerCase().replaceAll(" ", "_"),
+                        categories: []
+                ]
+
+                categories.each { catName, info ->
+                    md.append("### ${catName}\n\n")
+                    if (info.summary) {
+                        md.append("_${info.summary}_\n\n")
+                    }
+
+                    md.append("| Key | Title | Summary | Default Value |\n")
+                    md.append("| --- | ----- | ------- | ------------- |\n")
+                    info.prefs.each { p ->
+                        def escTitle = p.title?.replaceAll("\\|", "\\\\|") ?: ""
+                        def escSummary = p.summary?.replaceAll("\\|", "\\\\|") ?: ""
+                        def escDefault = p.defaultValue ? "`${p.defaultValue.replaceAll("\\|", "\\\\|")}`" : ""
+                        md.append("| **${p.key}** | ${escTitle} | ${escSummary} | ${escDefault} |\n")
+                    }
+                    md.append("\n")
+                    jsonEntry.categories += info.prefs
+                            .findAll { p -> p.nodeName != "Preference" && p.key?.trim() }
+                            .groupBy { catName.replaceAll(" ", "_").toLowerCase() }
+                            .collect { cat, prefs ->
+                                [
+                                        name: cat,
+                                        preferences: prefs.collect { p -> [key: p.key, value: null, type: p.type] }
+                                ]
+                            }
+                            .findAll { it.preferences }
+                }
+
+                jsonList << jsonEntry
+            }
+        }
+
+        outputFile.parentFile.mkdirs()
+        outputFile.text = md.toString()
+
+        jsonList.add([
+                metadata: [
+                        version: android.defaultConfig.versionName,
+                        code   : android.defaultConfig.versionCode,
+                        gitHash: getGitHash()
+                ]
+        ])
+        def json = groovy.json.JsonOutput.prettyPrint(
+                groovy.json.JsonOutput.toJson(jsonList)
+        )
+
+
+        jsonOutputFileDoc.text = json
+        jsonOutputFileResources.text = json
+
+        println "Preferences Markdown generated at: ${outputFile.path}"
+        println "Preferences JSON generated at: ${jsonOutputFileDoc.path}"
+    }
 }
+
+preBuild.dependsOn(tasks.named("generatePrefsDoc"))

@@ -23,11 +23,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 
 public class PingParameter extends Parameter {
-    public static final String rawDirPath = rootPath+"/omnt/ping/raw/";
 
-    public static final String lineProtocolDirPath = rootPath+"/omnt/ping/lineprotocol/";
     private static final String TAG = "PingParameter";
-
     public static final String PING = "ping";
     public static final String DESTINATION = "destination";
     public static final String COUNT = "count";
@@ -43,7 +40,7 @@ public class PingParameter extends Parameter {
         return count;
     }
 
-    public int getTimeoutMillis() {
+    public double getTimeoutMillis() {
         return timeoutMillis;
     }
 
@@ -51,7 +48,7 @@ public class PingParameter extends Parameter {
         return packetSize;
     }
 
-    public long getIntervalMillis() {
+    public double getIntervalMillis() {
         return intervalMillis;
     }
 
@@ -62,9 +59,9 @@ public class PingParameter extends Parameter {
 
     private String destination;
     private int count;
-    private int timeoutMillis;
+    private double timeoutMillis;
     private int packetSize;
-    private long intervalMillis;
+    private double intervalMillis;
     private Network network;
     private int deadline;
     private String testUUID;
@@ -101,15 +98,16 @@ public class PingParameter extends Parameter {
     private void setupDirs(){
 
         try {
-            Files.createDirectories(Paths.get(rawDirPath));
-            Files.createDirectories(Paths.get(lineProtocolDirPath));
+            Files.createDirectories(Paths.get(super.getRawDirPath()));
+            Files.createDirectories(Paths.get(super.getLineProtocolFilePath()));
         } catch (IOException e) {
             Log.d(TAG, "Could not create directories.");
         }
 
     }
     public PingParameter(String stringParameter, String  testUUID) {
-        super(rawDirPath + testUUID + ".txt", lineProtocolDirPath + testUUID + ".txt");
+        super(ParameterType.PING,
+                testUUID);
         this.testUUID = testUUID;
         String[] parts = stringParameter.split(" ");
         for (int i = 0; i < parts.length; i++) {
@@ -118,13 +116,13 @@ public class PingParameter extends Parameter {
                     count = Integer.parseInt(parts[i + 1]);
                     break;
                 case "-W":
-                    timeoutMillis = Integer.parseInt(parts[i + 1]);
+                    timeoutMillis = Double.parseDouble(parts[i + 1]);
                     break;
                 case "-s":
                     packetSize = Integer.parseInt(parts[i + 1]);
                     break;
                 case "-i":
-                    intervalMillis = Long.parseLong(parts[i + 1]);
+                    intervalMillis = Double.parseDouble(parts[i + 1]);
                     break;
                 case "-w":
                     deadline = Integer.parseInt(parts[i + 1]);
@@ -136,7 +134,8 @@ public class PingParameter extends Parameter {
     }
 
     public PingParameter(JSONObject parameter, String  testUUID) {
-        super(rawDirPath + testUUID + ".txt", lineProtocolDirPath + testUUID + ".txt");
+        super(ParameterType.PING,
+                testUUID);
         this.testUUID = testUUID;
         try {
             destination = parameter.getString(DESTINATION);
@@ -164,7 +163,7 @@ public class PingParameter extends Parameter {
             Log.i(TAG, "no packet size set.");
         }
         try {
-            intervalMillis = parameter.getLong(INTERVAL);
+            intervalMillis = parameter.getDouble(INTERVAL);
         } catch (JSONException e) {
             Log.d(TAG, e.toString());
             Log.i(TAG, "no interval set.");
@@ -182,38 +181,11 @@ public class PingParameter extends Parameter {
         super(in);
         destination = in.readString();
         count = in.readInt();
-        timeoutMillis = in.readInt();
+        timeoutMillis = in.readDouble();
         packetSize = in.readInt();
-        intervalMillis = in.readLong();
+        intervalMillis = in.readDouble();
         network = in.readParcelable(Network.class.getClassLoader());
     }
 
-    public static final Creator<PingParameter> CREATOR = new Creator<PingParameter>() {
-        @Override
-        public PingParameter createFromParcel(Parcel in) {
-            return new PingParameter(in);
-        }
-
-        @Override
-        public PingParameter[] newArray(int size) {
-            return new PingParameter[size];
-        }
-    };
-
-    @Override
-    public int describeContents() {
-        return super.describeContents();
-    }
-
-    @Override
-    public void writeToParcel(@NonNull Parcel dest, int flags) {
-        super.writeToParcel(dest, flags);
-        dest.writeString(destination);
-        dest.writeInt(count);
-        dest.writeInt(timeoutMillis);
-        dest.writeInt(packetSize);
-        dest.writeLong(intervalMillis);
-        dest.writeParcelable(network, flags);
-    }
 
 }
