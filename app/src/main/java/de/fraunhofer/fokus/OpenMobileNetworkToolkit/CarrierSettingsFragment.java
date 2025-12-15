@@ -8,6 +8,8 @@
 
 package de.fraunhofer.fokus.OpenMobileNetworkToolkit;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -21,6 +23,7 @@ import android.widget.EditText;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -72,6 +75,9 @@ public class CarrierSettingsFragment extends Fragment {
 
         Button btn_read = requireView().findViewById(R.id.button_read_carrier_settings);
         btn_read.setOnClickListener(view1 -> read_settings());
+
+        Button btn_copy_csv = requireView().findViewById(R.id.button_copy_csv_carrier_settings);
+        btn_copy_csv.setOnClickListener(view1 -> copy_settings_as_csv());
 
         CardView cv = requireView().findViewById(R.id.carrier_settings_card_view);
         cv.setRadius(15);
@@ -160,5 +166,46 @@ public class CarrierSettingsFragment extends Fragment {
         tr.addView(key_column);
         tr.addView(value_column);
         return tr;
+    }
+
+    private void copy_settings_as_csv() {
+        PersistableBundle cf = tm.getCarrierConfig();
+        if (cf == null) {
+            Toast.makeText(context, "No carrier config available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Map<String, String> map = bundle_to_map(cf);
+        StringBuilder csv = new StringBuilder();
+
+        // Add CSV header
+        csv.append("Key,Value\n");
+
+        // Add each entry as a CSV row
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            csv.append(escapeCSV(entry.getKey()));
+            csv.append(",");
+            csv.append(escapeCSV(entry.getValue()));
+            csv.append("\n");
+        }
+
+        // Copy to clipboard
+        ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Carrier Settings CSV", csv.toString());
+        clipboard.setPrimaryClip(clip);
+
+        Toast.makeText(context, "Copied " + map.size() + " settings to clipboard as CSV", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Copied carrier settings to clipboard as CSV: " + map.size() + " entries");
+    }
+
+    private String escapeCSV(String value) {
+        if (value == null) {
+            return "";
+        }
+        // If the value contains comma, newline, or quote, wrap it in quotes and escape internal quotes
+        if (value.contains(",") || value.contains("\n") || value.contains("\"")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }
