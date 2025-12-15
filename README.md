@@ -62,3 +62,4 @@ The SPDX formatted ```Software Bill Of Material``` is a machine readable list of
 ```shell
  ./gradlew app:spdxSbomForRelease
 ```
+trigger ci
