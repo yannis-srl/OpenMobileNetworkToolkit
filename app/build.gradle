@@ -12,15 +12,26 @@ plugins {
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('android/key.properties')
+def keystoreFile = null
+def hasValidKeystore = false
+
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystoreFile = file(keystoreProperties['storeFile'])
+    hasValidKeystore = keystoreFile.exists()
+    if (!hasValidKeystore) {
+        project.logger.warn("Keystore file not found: ${keystoreFile}")
+    }
 } else {
     project.logger.warn("File not found: ${keystorePropertiesFile}")
-    project.logger.warn("Using default values for signing config.")
-    keystoreProperties['keyAlias'] = "omnt_default"
-    keystoreProperties['keyPassword'] = "omnt2024"
-    keystoreProperties['storeFile'] = file("omnt_default.jks")
-    keystoreProperties['storePassword'] = "omnt2024"
+}
+
+if (!hasValidKeystore) {
+    project.logger.warn("No valid keystore found. Building without signing.")
+    keystoreProperties['keyAlias'] = ""
+    keystoreProperties['keyPassword'] = ""
+    keystoreProperties['storeFile'] = null
+    keystoreProperties['storePassword'] = ""
 }
 
 def getGitHash = { ->
@@ -39,17 +50,19 @@ android {
         }
     }
     signingConfigs {
-        debug {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
-        }
-        release{
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
+        if (hasValidKeystore) {
+            debug {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
         }
     }
 
@@ -64,7 +77,9 @@ android {
         resValue("string", "git_hash", getGitHash())
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        signingConfig signingConfigs.debug
+        if (hasValidKeystore) {
+            signingConfig signingConfigs.debug
+        }
 
         javaCompileOptions {
             annotationProcessorOptions {
@@ -79,10 +94,14 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            if (hasValidKeystore) {
+                signingConfig signingConfigs.debug
+            }
         }
         debug {
-            signingConfig signingConfigs.debug
+            if (hasValidKeystore) {
+                signingConfig signingConfigs.debug
+            }
         }
     }
     compileOptions {
